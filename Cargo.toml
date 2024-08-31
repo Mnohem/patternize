@@ -1,8 +1,8 @@
 [package]
-name = "bevy_game" # ToDo
+name = "patternize"
 version = "0.1.0"
 publish = false
-authors = ["Niklas Eicker <git@nikl.me>"] # ToDo: you are the author ;)
+authors = ["Stefano Cefalu"]
 edition = "2021"
 exclude = ["dist", "build", "assets", "credits"]
 

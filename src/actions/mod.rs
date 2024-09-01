@@ -1,13 +1,6 @@
-use bevy::math::Vec3Swizzles;
-use bevy::prelude::*;
+use bevy::{input::common_conditions::*, prelude::*};
 
-use crate::actions::game_control::{get_movement, GameControl};
-use crate::player::Player;
 use crate::GameState;
-
-mod game_control;
-
-pub const FOLLOW_EPSILON: f32 = 5.;
 
 pub struct ActionsPlugin;
 
@@ -15,46 +8,38 @@ pub struct ActionsPlugin;
 // Actions can then be used as a resource in other systems to act on the player input.
 impl Plugin for ActionsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Actions>().add_systems(
-            Update,
-            set_movement_actions.run_if(in_state(GameState::Playing)),
-        );
+        app.init_resource::<Actions>()
+            .add_systems(
+                Update,
+                (maintain_actions, actions_effect).chain().run_if(in_state(GameState::Drawing))
+            );
     }
 }
 
 #[derive(Default, Resource)]
 pub struct Actions {
-    pub player_movement: Option<Vec2>,
+    pub tool_button_push: Option<MouseButton>,
+    from: Vec2,
+    to: Vec2,
 }
 
-pub fn set_movement_actions(
-    mut actions: ResMut<Actions>,
-    keyboard_input: Res<ButtonInput<KeyCode>>,
-    touch_input: Res<Touches>,
-    player: Query<&Transform, With<Player>>,
-    camera: Query<(&Camera, &GlobalTransform), With<Camera2d>>,
-) {
-    let mut player_movement = Vec2::new(
-        get_movement(GameControl::Right, &keyboard_input)
-            - get_movement(GameControl::Left, &keyboard_input),
-        get_movement(GameControl::Up, &keyboard_input)
-            - get_movement(GameControl::Down, &keyboard_input),
-    );
-
-    if let Some(touch_position) = touch_input.first_pressed_position() {
-        let (camera, camera_transform) = camera.single();
-        if let Some(touch_position) = camera.viewport_to_world_2d(camera_transform, touch_position)
-        {
-            let diff = touch_position - player.single().translation.xy();
-            if diff.length() > FOLLOW_EPSILON {
-                player_movement = diff.normalize();
-            }
-        }
+pub fn actions_effect(action: Res<Actions>, q_user: Query<&crate::player::User>) {
+    if let Actions { tool_button_push: Some(button), from, to} = *action {
+        let user = q_user.single();
+        info!("{user:?} with tool being used with {button:?} spanning {from} to {to}");
     }
+}
 
-    if player_movement != Vec2::ZERO {
-        actions.player_movement = Some(player_movement.normalize());
-    } else {
-        actions.player_movement = None;
+pub fn maintain_actions(mouse_q: crate::MousePosQueries, mouse_buttons: Res<ButtonInput<MouseButton>>, mut action: ResMut<Actions>) {
+    match &mut *action {
+        Actions {
+            tool_button_push: Some(b), to, ..
+        } if mouse_buttons.pressed(*b) => *to = mouse_q.mouse_pos(),
+        Actions {
+            tool_button_push: button, from, ..
+        } => {
+            *from = mouse_q.mouse_pos();
+            *button = mouse_buttons.get_pressed().next().copied();
+        },
     }
 }

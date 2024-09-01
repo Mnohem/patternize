@@ -1,4 +1,4 @@
-use crate::actions::{set_movement_actions, Actions};
+use crate::actions::{maintain_actions, Actions};
 use crate::loading::AudioAssets;
 use crate::GameState;
 use bevy::prelude::*;
@@ -10,12 +10,12 @@ pub struct InternalAudioPlugin;
 impl Plugin for InternalAudioPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(AudioPlugin)
-            .add_systems(OnEnter(GameState::Playing), start_audio)
+            .add_systems(OnEnter(GameState::Drawing), start_audio)
             .add_systems(
                 Update,
                 control_flying_sound
-                    .after(set_movement_actions)
-                    .run_if(in_state(GameState::Playing)),
+                    .after(maintain_actions)
+                    .run_if(in_state(GameState::Drawing)),
             );
     }
 }
@@ -41,12 +41,12 @@ fn control_flying_sound(
     if let Some(instance) = audio_instances.get_mut(&audio.0) {
         match instance.state() {
             PlaybackState::Paused { .. } => {
-                if actions.player_movement.is_some() {
+                if actions.tool_button_push.is_some() {
                     instance.resume(AudioTween::default());
                 }
             }
             PlaybackState::Playing { .. } => {
-                if actions.player_movement.is_none() {
+                if actions.tool_button_push.is_none() {
                     instance.pause(AudioTween::default());
                 }
             }

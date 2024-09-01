@@ -1,6 +1,6 @@
 use crate::loading::TextureAssets;
+use crate::player::{Tool, ToolConfig, User};
 use crate::GameState;
-use crate::player::{User, Tool, ToolConfig};
 use bevy::prelude::*;
 
 pub struct MenuPlugin;
@@ -10,7 +10,10 @@ pub struct MenuPlugin;
 impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(OnEnter(GameState::Drawing), setup_menu)
-            .add_systems(Update, click_play_button.run_if(in_state(GameState::Drawing)))
+            .add_systems(
+                Update,
+                click_play_button.run_if(in_state(GameState::Drawing)),
+            )
             .add_systems(OnExit(GameState::Drawing), cleanup_menu);
     }
 }
@@ -69,7 +72,7 @@ fn setup_menu(mut commands: Commands, textures: Res<TextureAssets>) {
                             ..Default::default()
                         },
                         ButtonColors::default(),
-                        ChangeTool(ToolConfig { scale: 20.0}, Tool::Grid),
+                        ChangeTool(ToolConfig { scale: 20.0 }, Tool::Sheet),
                     ))
                     .with_children(|parent| {
                         parent.spawn(ImageBundle {

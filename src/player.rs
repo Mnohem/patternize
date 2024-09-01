@@ -10,7 +10,7 @@ pub struct ToolConfig {
 }
 #[derive(Debug)]
 pub enum Tool {
-    Grid,
+    Sheet,
 }
 #[derive(Component, Debug)]
 pub struct User {
@@ -28,7 +28,7 @@ impl Plugin for UserPlugin {
 
 fn spawn_user(mut commands: Commands) {
     commands.spawn(User {
-        current_tool: Tool::Grid,
+        current_tool: Tool::Sheet,
         current_config: ToolConfig { scale: 20.0 },
     });
 }

@@ -1,5 +1,5 @@
 use crate::actions::Actions;
-use crate::GameState;
+use crate::AppState;
 use bevy::prelude::*;
 
 pub struct UserPlugin;
@@ -8,7 +8,7 @@ pub struct UserPlugin;
 pub struct ToolConfig {
     pub scale: f32,
 }
-#[derive(Debug)]
+#[derive(Clone, Copy, Debug)]
 pub enum Tool {
     Sheet,
 }
@@ -22,7 +22,7 @@ pub struct User {
 /// User logic is only active during the State `GameState::Playing`
 impl Plugin for UserPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::Drawing), spawn_user);
+        app.add_systems(OnEnter(AppState::Running), spawn_user);
     }
 }
 

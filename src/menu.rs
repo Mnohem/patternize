@@ -1,6 +1,7 @@
 use crate::loading::TextureAssets;
-use crate::player::{Tool, ToolConfig, User};
-use crate::GameState;
+use crate::player::{Tool, User};
+use crate::{AppState, UserState};
+use bevy::input::common_conditions::input_just_pressed;
 use bevy::prelude::*;
 
 pub struct MenuPlugin;
@@ -9,12 +10,22 @@ pub struct MenuPlugin;
 /// The menu is only drawn during the State `GameState::Menu` and is removed when that state is exited
 impl Plugin for MenuPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::Drawing), setup_menu)
+        app.add_systems(OnEnter(AppState::Running), setup_menu)
             .add_systems(
                 Update,
-                click_play_button.run_if(in_state(GameState::Drawing)),
+                (
+                    tool_buttons,
+                    check_if_in_sidebar.run_if(
+                        input_just_pressed(MouseButton::Left)
+                            .or_else(input_just_pressed(MouseButton::Right)),
+                    ),
+                    crate::run_state_transitions.after(check_if_in_sidebar)
+                )
+                    .run_if(in_state(AppState::Running))
+                    .before(crate::CanvasSet)
+                    .before(crate::UISet)
             )
-            .add_systems(OnExit(GameState::Drawing), cleanup_menu);
+            .add_systems(OnEnter(AppState::Cleanup), cleanup_menu);
     }
 }
 
@@ -37,7 +48,6 @@ impl Default for ButtonColors {
 struct Sidebar;
 
 fn setup_menu(mut commands: Commands, textures: Res<TextureAssets>) {
-    info!("menu");
     commands.spawn(Camera2dBundle::default());
     commands
         .spawn((
@@ -72,7 +82,7 @@ fn setup_menu(mut commands: Commands, textures: Res<TextureAssets>) {
                             ..Default::default()
                         },
                         ButtonColors::default(),
-                        ChangeTool(ToolConfig { scale: 20.0 }, Tool::Sheet),
+                        ChangeTool(Tool::Sheet),
                     ))
                     .with_children(|parent| {
                         parent.spawn(ImageBundle {
@@ -89,9 +99,9 @@ fn setup_menu(mut commands: Commands, textures: Res<TextureAssets>) {
 }
 
 #[derive(Component)]
-struct ChangeTool(ToolConfig, Tool);
+struct ChangeTool(Tool);
 
-fn click_play_button(
+fn tool_buttons(
     mut user: Query<&mut User>,
     mut interaction_query: Query<
         (
@@ -106,7 +116,9 @@ fn click_play_button(
     for (interaction, mut color, button_colors, change_tool) in &mut interaction_query {
         match *interaction {
             Interaction::Pressed => {
-                let ChangeTool(config, tool) = change_tool;
+                let ChangeTool(tool) = change_tool;
+                let mut user = user.single_mut();
+                user.current_tool = *tool;
             }
             Interaction::Hovered => {
                 *color = button_colors.hovered.into();
@@ -116,6 +128,28 @@ fn click_play_button(
             }
         }
     }
+}
+
+fn check_if_in_sidebar(
+    interaction_query: Query<Entity, With<Sidebar>>,
+    children: Query<&Children>,
+    child_interact: Query<&Interaction>,
+    mut next_state: ResMut<NextState<UserState>>,
+) {
+    let sidebar = interaction_query.single();
+
+    for child in children.iter_descendants(sidebar) {
+        let Ok(c_interact) = child_interact.get(child) else {
+            continue;
+        };
+        match c_interact {
+            Interaction::Pressed | Interaction::Hovered => {
+                return next_state.set(UserState::Sidebar)
+            }
+            Interaction::None => (),
+        }
+    }
+    next_state.set(UserState::Drawing);
 }
 
 fn cleanup_menu(mut commands: Commands, menu: Query<Entity, With<Sidebar>>) {

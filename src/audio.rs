@@ -1,6 +1,6 @@
 use crate::actions::{maintain_actions, Actions};
 use crate::loading::AudioAssets;
-use crate::GameState;
+use crate::AppState;
 use bevy::prelude::*;
 use bevy_kira_audio::prelude::*;
 
@@ -10,12 +10,12 @@ pub struct InternalAudioPlugin;
 impl Plugin for InternalAudioPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(AudioPlugin)
-            .add_systems(OnEnter(GameState::Drawing), start_audio)
+            .add_systems(OnEnter(AppState::Running), start_audio)
             .add_systems(
                 Update,
                 control_flying_sound
                     .after(maintain_actions)
-                    .run_if(in_state(GameState::Drawing)),
+                    .run_if(in_state(AppState::Running)),
             );
     }
 }

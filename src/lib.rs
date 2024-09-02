@@ -6,7 +6,7 @@ mod loading;
 mod menu;
 mod player;
 
-use actions::ActionsPlugin;
+use actions::{Actions, ActionsPlugin};
 use audio::InternalAudioPlugin;
 use loading::LoadingPlugin;
 use menu::MenuPlugin;
@@ -22,26 +22,64 @@ use bevy::prelude::*;
 // See https://bevy-cheatbook.github.io/programming/states.html
 // Or https://github.com/bevyengine/bevy/blob/main/examples/ecs/state.rs
 #[derive(States, Default, Clone, Eq, PartialEq, Debug, Hash)]
-enum GameState {
+enum AppState {
     // During the loading State the LoadingPlugin will load our assets
     #[default]
     Loading,
-    // During this State the actual game logic is executed
+    // During this State the actual app logic is executed
+    Running,
+    Cleanup,
+}
+#[derive(States, Default, Clone, Eq, PartialEq, Debug, Hash)]
+pub enum UserState {
+    #[default]
+    Inactive,
+    // User cursor is hovering over the Sidebar
+    Sidebar,
     // Here the Sidebar is drawn and waiting for player interaction
+    // User is using the canvas
     Drawing,
 }
+
+/// Systems in this set run when the user is interacting with the canvas
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+struct CanvasSet;
+/// Systems in this set run when the user is interacting with the canvas and performing some action
+/// on it
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+struct ActionSet;
+/// Systems in this set run when the user is interacting with the UI
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+struct UISet;
 
 pub struct GamePlugin;
 
 impl Plugin for GamePlugin {
     fn build(&self, app: &mut App) {
-        app.init_state::<GameState>().add_plugins((
-            LoadingPlugin,
-            MenuPlugin,
-            ActionsPlugin,
-            InternalAudioPlugin,
-            UserPlugin,
-        ));
+        app.init_state::<AppState>()
+            .init_state::<UserState>()
+            .add_plugins((
+                LoadingPlugin,
+                MenuPlugin,
+                ActionsPlugin,
+                InternalAudioPlugin,
+                UserPlugin,
+            ))
+            .add_systems(OnEnter(AppState::Running), canvas_start)
+            .configure_sets(
+                Update,
+                (
+                    UISet
+                        .run_if(in_state(AppState::Running))
+                        .run_if(not(in_state(UserState::Drawing)))
+                        .before(CanvasSet),
+                    CanvasSet
+                        .run_if(in_state(AppState::Running))
+                        .run_if(in_state(UserState::Drawing))
+                        .after(UISet),
+                    ActionSet.in_set(CanvasSet).run_if(performing_actions),
+                ),
+            );
 
         #[cfg(debug_assertions)]
         {
@@ -69,4 +107,16 @@ impl MousePosQueries<'_, '_> {
             .map(|ray| ray.origin.truncate())
             .unwrap_or(Vec2::NAN)
     }
+}
+
+pub fn canvas_start(mut next_user_state: ResMut<NextState<UserState>>) {
+    next_user_state.set(UserState::Drawing);
+}
+
+pub fn performing_actions(actions: Res<Actions>) -> bool {
+    actions.tool_button_push.is_some()
+}
+
+pub fn run_state_transitions(world: &mut World) {
+    let _ = world.try_run_schedule(StateTransition);
 }

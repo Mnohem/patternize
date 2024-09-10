@@ -14,16 +14,16 @@ impl Plugin for MenuPlugin {
             .add_systems(
                 Update,
                 (
-                    tool_buttons,
-                    check_if_in_sidebar.run_if(
+                    sidebar_buttons,
+                    check_if_in_ui.run_if(
                         input_just_pressed(MouseButton::Left)
                             .or_else(input_just_pressed(MouseButton::Right)),
                     ),
-                    crate::run_state_transitions.after(check_if_in_sidebar)
+                    crate::run_state_transitions.after(check_if_in_ui),
                 )
                     .run_if(in_state(AppState::Running))
                     .before(crate::CanvasSet)
-                    .before(crate::UISet)
+                    .before(crate::UISet),
             )
             .add_systems(OnEnter(AppState::Cleanup), cleanup_menu);
     }
@@ -82,7 +82,7 @@ fn setup_menu(mut commands: Commands, textures: Res<TextureAssets>) {
                             ..Default::default()
                         },
                         ButtonColors::default(),
-                        ChangeTool(Tool::Sheet),
+                        ChangeTool(Tool::Table),
                     ))
                     .with_children(|parent| {
                         parent.spawn(ImageBundle {
@@ -101,7 +101,7 @@ fn setup_menu(mut commands: Commands, textures: Res<TextureAssets>) {
 #[derive(Component)]
 struct ChangeTool(Tool);
 
-fn tool_buttons(
+fn sidebar_buttons(
     mut user: Query<&mut User>,
     mut interaction_query: Query<
         (
@@ -130,7 +130,7 @@ fn tool_buttons(
     }
 }
 
-fn check_if_in_sidebar(
+fn check_if_in_ui(
     interaction_query: Query<Entity, With<Sidebar>>,
     children: Query<&Children>,
     child_interact: Query<&Interaction>,

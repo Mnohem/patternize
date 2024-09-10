@@ -41,12 +41,12 @@ fn control_flying_sound(
     if let Some(instance) = audio_instances.get_mut(&audio.0) {
         match instance.state() {
             PlaybackState::Paused { .. } => {
-                if actions.tool_button_push.is_some() {
+                if actions.button_push.is_some() {
                     instance.resume(AudioTween::default());
                 }
             }
             PlaybackState::Playing { .. } => {
-                if actions.tool_button_push.is_none() {
+                if actions.button_push.is_none() {
                     instance.pause(AudioTween::default());
                 }
             }

@@ -5,12 +5,14 @@ mod audio;
 mod loading;
 mod menu;
 mod player;
+mod table;
 
 use actions::{Actions, ActionsPlugin};
 use audio::InternalAudioPlugin;
 use loading::LoadingPlugin;
 use menu::MenuPlugin;
-use player::UserPlugin;
+use player::{Tool, User, UserPlugin};
+use table::TablePlugin;
 
 use bevy::app::App;
 #[cfg(debug_assertions)]
@@ -44,10 +46,9 @@ pub enum UserState {
 /// Systems in this set run when the user is interacting with the canvas
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 struct CanvasSet;
-/// Systems in this set run when the user is interacting with the canvas and performing some action
-/// on it
+/// Systems in this set run when the user is possibly finishing an action
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
-struct ActionSet;
+struct WhenActionDoneSet;
 /// Systems in this set run when the user is interacting with the UI
 #[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
 struct UISet;
@@ -64,26 +65,28 @@ impl Plugin for GamePlugin {
                 ActionsPlugin,
                 InternalAudioPlugin,
                 UserPlugin,
+                TablePlugin,
             ))
             .add_systems(OnEnter(AppState::Running), canvas_start)
             .configure_sets(
                 Update,
                 (
-                    UISet
-                        .run_if(in_state(AppState::Running))
-                        .run_if(not(in_state(UserState::Drawing)))
-                        .before(CanvasSet),
-                    CanvasSet
-                        .run_if(in_state(AppState::Running))
+                    UISet.run_if(not(in_state(UserState::Drawing))),
+                    CanvasSet.run_if(in_state(UserState::Drawing)),
+                    WhenActionDoneSet
                         .run_if(in_state(UserState::Drawing))
-                        .after(UISet),
-                    ActionSet.in_set(CanvasSet).run_if(performing_actions),
-                ),
+                        .run_if(mouse_just_released),
+                )
+                    .chain()
+                    .run_if(in_state(AppState::Running)),
             );
 
         #[cfg(debug_assertions)]
         {
-            app.add_plugins((FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin::default()));
+            app.add_plugins((
+                    // FrameTimeDiagnosticsPlugin, 
+                    LogDiagnosticsPlugin::default(),
+                ));
         }
     }
 }
@@ -114,7 +117,15 @@ pub fn canvas_start(mut next_user_state: ResMut<NextState<UserState>>) {
 }
 
 pub fn performing_actions(actions: Res<Actions>) -> bool {
-    actions.tool_button_push.is_some()
+    actions.button_push.is_some()
+}
+
+pub fn mouse_just_released(input: Res<ButtonInput<MouseButton>>) -> bool {
+    input.any_just_released([MouseButton::Left, MouseButton::Right, MouseButton::Middle])
+}
+
+pub fn using_tool(tool: Tool) -> impl FnMut(Query<&User>, Res<Actions>) -> bool {
+    move |user, actions| performing_actions(actions) && user.single().current_tool == tool
 }
 
 pub fn run_state_transitions(world: &mut World) {
